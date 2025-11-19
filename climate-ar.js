@@ -270,14 +270,14 @@ const startAR = async () => {
   const anchor = mindarThree.addAnchor(0);
 
   // Plane: 11 x 17 world units (matching poster dimensions: 11" width x 17" height)
-  // Segments: 156 x 240 (proportional to dimensions)
-  const geometry = new THREE.PlaneGeometry(11, 17, 156, 240);
+  // Segments: 80 x 120 (reduced for performance and visibility)
+  const geometry = new THREE.PlaneGeometry(11, 17, 80, 120);
 
   const uniforms = {
     u_time:        { value: 0.0 },
     u_anomaly:     { value: 0.5 },
     u_cumulative:  { value: 0.5 },
-    u_heightScale: { value: 2.5 }, // Reduced from 4.0 for better visibility
+    u_heightScale: { value: 1.0 }, // Further reduced for debugging
     u_wind:        { value: 0.5 },
     u_precip:      { value: 0.5 },
     u_lightDir:    { value: new THREE.Vector3(0.4, 0.8, 0.3) },
@@ -292,21 +292,48 @@ const startAR = async () => {
     side: THREE.DoubleSide,
   });
 
+  // Check for shader compilation errors
+  material.onBeforeCompile = (shader) => {
+    console.log('Shader compiled successfully');
+  };
+
+  // Add error listener
+  renderer.domElement.addEventListener('webglcontextlost', (event) => {
+    console.error('WebGL context lost:', event);
+  });
+
   const cloth = new THREE.Mesh(geometry, material);
+
+  // Also create a simple test plane to verify basic rendering works
+  const testMaterial = new THREE.MeshBasicMaterial({ 
+    color: 0x00ff00, 
+    transparent: true, 
+    opacity: 0.5,
+    side: THREE.DoubleSide 
+  });
+  const testPlane = new THREE.Mesh(
+    new THREE.PlaneGeometry(5, 5),
+    testMaterial
+  );
+  testPlane.position.set(6, 0, 0); // Position to the side
+  anchor.group.add(testPlane);
 
   // Rotate to face the camera (no z-rotation needed since geometry matches portrait orientation)
   cloth.rotation.x = 0; // Keep flat
+  cloth.position.set(0, 0, 0); // Ensure it's at the origin
   anchor.group.add(cloth);
 
   // Add a simple debug cube to verify anchor is tracking
   const debugCube = new THREE.Mesh(
-    new THREE.BoxGeometry(1, 1, 1),
+    new THREE.BoxGeometry(0.5, 0.5, 0.5),
     new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true })
   );
-  debugCube.position.set(0, 0, 2); // Position it 2 units above the marker
+  debugCube.position.set(0, 0, 5); // Position it 5 units above the marker
   anchor.group.add(debugCube);
 
   console.log('AR objects created and added to anchor');
+  console.log('Cloth material:', material);
+  console.log('Geometry:', geometry);
 
   // ---- CSV loading (same logic as your original) ----
   let years = [], anomaliesNorm = [], cumulativeNorm = [], windNorm = [], precipNorm = [];
@@ -368,10 +395,18 @@ const startAR = async () => {
   await mindarThree.start();
   console.log('MindAR started successfully!');
 
+  let frameCount = 0;
   renderer.setAnimationLoop(() => {
     const now = performance.now() / 1000;
     const dt = now - lastTime;
     lastTime = now;
+
+    // Log every 60 frames to verify render loop is running
+    if (frameCount % 60 === 0) {
+      console.log(`Rendering frame ${frameCount}, time: ${now.toFixed(2)}`);
+      console.log(`Cloth visible: ${cloth.visible}, position:`, cloth.position);
+    }
+    frameCount++;
 
     const lastIdx = anomaliesNorm.length - 1;
     if (yearIdx < lastIdx) {
