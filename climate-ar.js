@@ -4,14 +4,35 @@ import { MindARThree } from "mindar-image-three";
 
 // Simple test shaders
 const testVertexShader = /* glsl */ `
+attribute vec3 position;
+attribute vec2 uv;
+
+uniform mat4 projectionMatrix;
+uniform mat4 modelViewMatrix;
+uniform float u_time;
+
+varying vec2 v_uv;
+
 void main() {
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  v_uv = uv;
+
+  // small vertical wiggle so you can see motion (Y is up in MindAR)
+  vec3 pos = position;
+  pos.y += 0.1 * sin(u_time * 2.0 + pos.x * 5.0 + pos.z * 5.0);
+
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
 }
 `;
 
 const testFragmentShader = /* glsl */ `
+precision mediump float;
+
+varying vec2 v_uv;
+
 void main() {
-  gl_FragColor = vec4(1.0, 1.0, 0.0, 0.8); // Bright yellow, 80% opacity
+  // simple UV-based gradient, slightly transparent
+  vec3 color = vec3(v_uv.x, v_uv.y, 1.0);
+  gl_FragColor = vec4(color, 0.7);
 }
 `;
 
@@ -32,24 +53,22 @@ const startAR = async () => {
 
   const geom = new THREE.PlaneGeometry(11, 17, 10, 10);
 
+  const uniforms = {
+    u_time: { value: 0.0 },
+  };
+
   const testMat = new THREE.ShaderMaterial({
     vertexShader: testVertexShader,
     fragmentShader: testFragmentShader,
+    uniforms,
     transparent: true,
     side: THREE.DoubleSide,
   });
 
   const testPlane = new THREE.Mesh(geom, testMat);
   testPlane.rotation.x = -Math.PI / 2; // Rotate to face upward (camera looks down Y-axis)
-  testPlane.position.y = 0.03; // Lift above the magenta plane
+  testPlane.position.y = 0.01; // Lift slightly above marker
   anchor.group.add(testPlane);
-  
-  console.log('Shader plane created:', testPlane);
-  console.log('Shader material:', testMat);
-  
-  // Check for shader errors
-  renderer.info.autoReset = false;
-  testMat.needsUpdate = true;
 
   // Basic material plane for comparison
   const basicMat = new THREE.MeshBasicMaterial({
@@ -60,7 +79,7 @@ const startAR = async () => {
   });
   const basicPlane = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), basicMat);
   basicPlane.rotation.x = -Math.PI / 2; // Rotate to face upward
-  basicPlane.position.y = 0.01; // Lower than shader plane
+  basicPlane.position.y = 0.02; // Lift slightly more
   anchor.group.add(basicPlane);
   
   console.log('Planes added. TestPlane visible:', testPlane.visible, 'BasicPlane visible:', basicPlane.visible);
@@ -77,7 +96,10 @@ const startAR = async () => {
   await mindarThree.start();
   console.log("MindAR started.");
 
+  const clock = new THREE.Clock();
+
   renderer.setAnimationLoop(() => {
+    uniforms.u_time.value = clock.getElapsedTime();
     renderer.render(scene, camera);
   });
 };
