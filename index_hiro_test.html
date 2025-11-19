@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HIRO Marker Test</title>
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
+  <style>body{margin:0;overflow:hidden} #msg{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:rgba(0,0,0,.6);color:#fff;padding:8px 12px;border-radius:8px;font-family:system-ui,Inter}</style>
+</head>
+<body>
+  <div id="msg">Point camera at the HIRO marker</div>
+  <a-scene embedded arjs='sourceType: webcam; debugUIEnabled: false;'>
+    <a-marker preset="hiro" id="hiroMarker">
+      <a-box position='0 0.5 0' material='color: #ff2d55'></a-box>
+    </a-marker>
+    <a-entity camera></a-entity>
+  </a-scene>
+
+  <script>
+    (function(){
+      const marker = document.getElementById('hiroMarker');
+      if(!marker) { console.warn('HIRO marker element not found'); return; }
+      marker.addEventListener('markerFound', (e)=> console.log('[HIRO TEST] markerFound', e));
+      marker.addEventListener('markerLost',  (e)=> console.log('[HIRO TEST] markerLost', e));
+      console.log('[HIRO TEST] hooks installed');
+    })();
+  </script>
+</body>
+</html>
