@@ -1,0 +1,63 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Shader Test - Climate Fabric</title>
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <style>body{margin:0;height:100vh;display:flex;align-items:center;justify-content:center;background:#050508} canvas{width:100%;height:100%}</style>
+</head>
+<body>
+  <a-scene embedded background="color: #050508">
+    <a-entity id="shaderPlane" position="0 0 -2" rotation="-30 0 0"></a-entity>
+    <a-entity camera position="0 0 0"></a-entity>
+  </a-scene>
+
+  <!-- Vertex shader (adapted) -->
+  <script id="vs" type="x-shader/x-vertex">
+attribute vec3 position;
+attribute vec2 uv;
+varying vec2 v_uv;
+uniform float u_time;
+void main(){ v_uv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }
+  </script>
+
+  <!-- Fragment shader (simple animated color using uv/time) -->
+  <script id="fs" type="x-shader/x-fragment">
+precision highp float;
+varying vec2 v_uv;
+uniform float u_time;
+void main(){
+  vec2 uv = v_uv - 0.5;
+  float t = u_time * 0.2;
+  float v = 0.5 + 0.5 * sin((uv.x+uv.y*1.2)*10.0 + t*6.0);
+  vec3 c = mix(vec3(0.05,0.05,0.6), vec3(0.42,0.05,0.55), v);
+  gl_FragColor = vec4(c, 1.0);
+}
+  </script>
+
+  <script>
+  AFRAME.registerComponent('shader-test', {
+    init: function(){
+      const geometry = new THREE.PlaneGeometry(3.4, 2.2, 240, 156);
+      const mat = new THREE.ShaderMaterial({
+        vertexShader: document.getElementById('vs').textContent,
+        fragmentShader: document.getElementById('fs').textContent,
+        uniforms: { u_time: { value: 0 } },
+        side: THREE.DoubleSide
+      });
+      const mesh = new THREE.Mesh(geometry, mat);
+      this.el.setObject3D('mesh', mesh);
+      this.mat = mat;
+    },
+    tick: function(time){ if(this.mat) this.mat.uniforms.u_time.value = time/1000; }
+  });
+
+  // attach to entity
+  document.addEventListener('DOMContentLoaded', ()=>{
+    const plane = document.getElementById('shaderPlane');
+    plane.setAttribute('shader-test','');
+  });
+  </script>
+</body>
+</html>
