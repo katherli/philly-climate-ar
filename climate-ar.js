@@ -16,9 +16,9 @@ varying vec2 v_uv;
 void main() {
   v_uv = uv;
 
-  // small vertical wiggle so you can see motion
+  // small vertical wiggle so you can see motion (Y is up in MindAR)
   vec3 pos = position;
-  pos.z += 0.1 * sin(u_time * 2.0 + pos.x * 5.0 + pos.y * 5.0);
+  pos.y += 0.1 * sin(u_time * 2.0 + pos.x * 5.0 + pos.z * 5.0);
 
   gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
 }
@@ -66,7 +66,8 @@ const startAR = async () => {
   });
 
   const testPlane = new THREE.Mesh(geom, testMat);
-  testPlane.position.z = 0.01;
+  testPlane.rotation.x = -Math.PI / 2; // Rotate to face upward (camera looks down Y-axis)
+  testPlane.position.y = 0.01; // Lift slightly above marker
   anchor.group.add(testPlane);
 
   // Basic material plane for comparison
@@ -77,7 +78,8 @@ const startAR = async () => {
     side: THREE.DoubleSide,
   });
   const basicPlane = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), basicMat);
-  basicPlane.position.z = 0.02;
+  basicPlane.rotation.x = -Math.PI / 2; // Rotate to face upward
+  basicPlane.position.y = 0.02; // Lift slightly more
   anchor.group.add(basicPlane);
   
   console.log('Planes added. TestPlane visible:', testPlane.visible, 'BasicPlane visible:', basicPlane.visible);
@@ -87,7 +89,7 @@ const startAR = async () => {
     new THREE.BoxGeometry(1, 1, 1),
     new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true })
   );
-  debugCube.position.set(0, 0, 3);
+  debugCube.position.set(0, 3, 0); // 3 units above marker (Y is up in MindAR)
   anchor.group.add(debugCube);
 
   console.log("Starting MindAR...");
