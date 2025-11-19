@@ -89,7 +89,7 @@ void main(){
   v_uv = uv;
   v_anom = u_anomaly;
 
-  // Our PlaneGeometry will be 17×11, so position.x ∈ [-8.5,8.5], position.y ∈ [-5.5,5.5].
+  // Our PlaneGeometry will be 11×17, so position.x ∈ [-5.5,5.5], position.y ∈ [-8.5,8.5].
   vec2 plane = vec2(position.x, position.y);
 
   float t = u_time;
@@ -183,7 +183,7 @@ float fbm(vec2 p) {
 
 void main(){
   vec2 uv = v_uv - 0.5;
-  float aspect = 17.0 / 11.0;
+  float aspect = 11.0 / 17.0;
   uv.x *= aspect;
 
   float an = v_anom * 2.0 - 1.0;
@@ -264,14 +264,15 @@ const startAR = async () => {
   // Anchor attached to your poster image
   const anchor = mindarThree.addAnchor(0);
 
-  // Plane: 17 x 11 world units, with 240x156 segments (same as your WebGL grid)
-  const geometry = new THREE.PlaneGeometry(17, 11, 240, 156);
+  // Plane: 11 x 17 world units (matching poster dimensions: 11" width x 17" height)
+  // Segments: 156 x 240 (proportional to dimensions)
+  const geometry = new THREE.PlaneGeometry(11, 17, 156, 240);
 
   const uniforms = {
     u_time:        { value: 0.0 },
     u_anomaly:     { value: 0.5 },
     u_cumulative:  { value: 0.5 },
-    u_heightScale: { value: 4.0 },
+    u_heightScale: { value: 2.5 }, // Reduced from 4.0 for better visibility
     u_wind:        { value: 0.5 },
     u_precip:      { value: 0.5 },
     u_lightDir:    { value: new THREE.Vector3(0.4, 0.8, 0.3) },
@@ -288,10 +289,8 @@ const startAR = async () => {
 
   const cloth = new THREE.Mesh(geometry, material);
 
-  // If your poster is portrait and you want the long side vertical, align as needed.
-  // This makes the plane flush with the marker (facing the camera).
-  cloth.rotation.z = Math.PI / 2;
-  cloth.rotation.y = Math.PI; // flip to face camera
+  // Rotate to face the camera (no z-rotation needed since geometry matches portrait orientation)
+  cloth.rotation.x = 0; // Keep flat
   anchor.group.add(cloth);
 
   // ---- CSV loading (same logic as your original) ----
