@@ -58,6 +58,48 @@
     </a-entity>
   </a-scene>
 
+  <!-- MindAR debug helpers: fetch marker.mind, log MindAR lifecycle and target events -->
+  <script>
+  (function(){
+    const markerUrl = './marker.mind';
+    console.log('[AR DEBUG] beginning marker diagnostic');
+
+    // Check marker file fetch
+    fetch(markerUrl).then(r => {
+      console.log('[AR DEBUG] fetch marker.mind status:', r.status, r.statusText);
+      return r.arrayBuffer();
+    }).then(buf => {
+      console.log('[AR DEBUG] marker.mind size (bytes):', buf.byteLength);
+    }).catch(err => {
+      console.error('[AR DEBUG] failed to fetch marker.mind:', err);
+    });
+
+    // Wait until scene is ready
+    window.addEventListener('load', ()=>{
+      const scene = document.querySelector('a-scene');
+      if(!scene){ console.warn('[AR DEBUG] a-scene not found'); return; }
+
+      // MindAR component instance
+      const mindarComp = scene.components && scene.components['mindar-image'];
+      console.log('[AR DEBUG] mindar-image component present?', !!mindarComp, mindarComp);
+
+      // Listen for MindAR start/stop/error via the scene's system
+      scene.addEventListener('mindar-initialized', ()=> console.log('[AR DEBUG] mindar-initialized'));
+      scene.addEventListener('mindar-start', ()=> console.log('[AR DEBUG] mindar-start'));
+      scene.addEventListener('mindar-stop', ()=> console.log('[AR DEBUG] mindar-stop'));
+      scene.addEventListener('mindar-error', (e)=> console.error('[AR DEBUG] mindar-error', e));
+
+      // Attach target events
+      const target = document.querySelector('[mindar-image-target]');
+      if(!target){ console.warn('[AR DEBUG] mindar-image-target entity not found'); return; }
+      target.addEventListener('targetFound', (e)=> console.log('[AR DEBUG] targetFound', e));
+      target.addEventListener('targetLost',  (e)=> console.log('[AR DEBUG] targetLost', e));
+
+      console.log('[AR DEBUG] debug hooks installed');
+    });
+  })();
+  </script>
+
   <!-- Vertex shader: 17×11 plane displaced like cloth/water -->
   <script id="vertexShader" type="x-shader/x-vertex">
 attribute vec2 aUV;
