@@ -7,7 +7,7 @@
 <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
 <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.js"></script>
 <style>
-  html,body{margin:0;padding:0;overflow:hidden;font-family:Inter,system-ui,sans-serif}
+  html,body{margin:0;padding:0;overflow:hidden;font-family:Inter,system-ui,sans-serif;height:100%}
   #instructions{
     position:absolute;
     top:20px;
@@ -55,6 +55,9 @@
     font-size: 1.25em;
     color: white;
   }
+  /* Force AR.js video/canvas to occupy full viewport */
+  a-scene, a-scene .arjs-video, a-scene canvas, .arjs-video, video { width:100% !important; height:100% !important; top:0; left:0; object-fit:cover; }
+</style>
 </style>
 </head>
 <body style="margin:0;overflow:hidden;">
@@ -193,6 +196,19 @@ void main(){
 
   gl_Position = projectionMatrix * modelViewMatrix * vec4(P, 1.0);
 }
+</script>
+
+<script>
+// Ensure AR.js resizes its video/canvas to fill the viewport on load and resize
+function ensureFullScreenAR(){
+  const scene = document.querySelector('a-scene');
+  if(!scene) return;
+  const video = document.querySelector('video');
+  const canvas = document.querySelector('canvas');
+  [scene, video, canvas].forEach(el=>{ if(el){ el.style.width='100%'; el.style.height='100%'; el.style.top='0'; el.style.left='0'; } });
+}
+window.addEventListener('load', ()=>{ setTimeout(ensureFullScreenAR, 500); });
+window.addEventListener('resize', ensureFullScreenAR);
 </script>
 
 <!-- Fragment Shader -->
