@@ -51,6 +51,10 @@
               class="bg-white text-black hover:bg-zinc-200 font-semibold py-2 px-4 rounded text-xs shadow-lg transition-colors">
               Export 17" × 11" PNG
             </button>
+            <button id="restartBtn"
+              class="bg-sky-600 text-white hover:bg-sky-500 font-semibold py-2 px-4 rounded text-xs shadow-lg transition-colors">
+              Restart
+            </button>
           </div>
         </div>
       </div>
@@ -502,6 +506,20 @@ void main(){
   let yearIdx=0, blend=0, lastT=performance.now()/1000;
   let isPaused = false;
   let currentAnom, currentCum, currentWind, currentPrecip, currentTime;
+
+  // Restart button (reset to 1945)
+  const restartBtn = document.getElementById('restartBtn');
+  restartBtn.addEventListener('click', ()=>{
+    yearIdx = 0;
+    blend = 0;
+    isPaused = false;
+    lastT = performance.now()/1000;
+    pauseBtn.textContent = 'Pause';
+    pauseBtn.classList.remove('bg-sky-600','bg-sky-500');
+    pauseBtn.classList.add('bg-zinc-700');
+    // update label immediately
+    if (years.length) yearLabel.textContent = `Year: ${years[0]}`;
+  });
 
   function start(){ fit(); requestAnimationFrame(tick); }
 
