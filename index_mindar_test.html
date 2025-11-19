@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MindAR Marker Test</title>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image.prod.js"></script>
+  <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+  <style>body{margin:0;overflow:hidden} #msg{position:absolute;left:50%;top:12px;transform:translateX(-50%);background:rgba(0,0,0,.6);color:#fff;padding:8px 12px;border-radius:8px;font-family:system-ui,Inter}</style>
+</head>
+<body>
+  <div id="msg">Point camera at your custom purple marker</div>
+
+  <a-scene mindar-image="imageTargetSrc: ./marker.mind; autoStart: true; uiLoading: no; uiError: no; uiScanning: no;" embedded>
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+    <a-entity mindar-image-target="targetIndex: 0" id="mindTarget">
+      <a-box position="0 0.5 0" depth="0.1" height="0.1" width="0.6" color="#00ccff"></a-box>
+    </a-entity>
+  </a-scene>
+
+  <script>
+    window.addEventListener('load', ()=>{
+      console.log('[MIND TEST] page loaded');
+      fetch('./marker.mind').then(r=>{ console.log('[MIND TEST] marker fetch status', r.status); return r.arrayBuffer(); }).then(b=>{ console.log('[MIND TEST] marker bytes', b.byteLength); }).catch(e=>console.error('[MIND TEST] fetch error', e));
+      const t = document.getElementById('mindTarget');
+      if(!t) return console.warn('[MIND TEST] target entity missing');
+      t.addEventListener('targetFound', ()=> console.log('[MIND TEST] targetFound'));
+      t.addEventListener('targetLost',  ()=> console.log('[MIND TEST] targetLost'));
+      console.log('[MIND TEST] listeners attached');
+    });
+  </script>
+</body>
+</html>
