@@ -13,6 +13,8 @@
     <a-entity camera position="0 0 0"></a-entity>
   </a-scene>
 
+  <div id="camStatus" style="position:fixed;left:12px;top:12px;padding:8px 12px;background:rgba(0,0,0,0.6);color:#fff;border-radius:6px;font-family:system-ui,Arial;font-size:13px;z-index:999">Camera: unknown</div>
+
   <!-- Vertex shader (adapted) -->
   <script id="vs" type="x-shader/x-vertex">
 attribute vec3 position;
@@ -37,6 +39,24 @@ void main(){
   </script>
 
   <script>
+  async function requestCamera(){
+    const el = document.getElementById('camStatus');
+    if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+      el.textContent = 'Camera: not supported';
+      return;
+    }
+    try{
+      el.textContent = 'Camera: requesting...';
+      const stream = await navigator.mediaDevices.getUserMedia({video:true,audio:false});
+      el.textContent = 'Camera: granted';
+      // immediately stop tracks - we only want the permission prompt
+      stream.getTracks().forEach(t=>t.stop());
+    }catch(err){
+      console.warn('Camera request failed',err);
+      el.textContent = 'Camera: denied or error';
+    }
+  }
+
   AFRAME.registerComponent('shader-test', {
     init: function(){
       const geometry = new THREE.PlaneGeometry(3.4, 2.2, 240, 156);
@@ -57,6 +77,8 @@ void main(){
   document.addEventListener('DOMContentLoaded', ()=>{
     const plane = document.getElementById('shaderPlane');
     plane.setAttribute('shader-test','');
+  // request camera permission so mobile browsers prompt
+  requestCamera();
   });
   </script>
 </body>
