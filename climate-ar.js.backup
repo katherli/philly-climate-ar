@@ -1,6 +1,31 @@
 // climate-ar.js (TEST VERSION)
 import * as THREE from "three";
-import { MindARThree } from "mindar-image-three";
+import {   const testPlane = new THREE.Mesh(geom, testMat);
+  testPlane.position.z = 0.01;
+  anchor.group.add(testPlane);
+
+  // ALSO add a basic material plane for comparison
+  const basicMat = new THREE.MeshBasicMaterial({
+    color: 0xff00ff, // magenta
+    transparent: true,
+    opacity: 0.8,
+    side: THREE.DoubleSide,
+  });
+  const basicPlane = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), basicMat);
+  basicPlane.position.z = 0.02; // slightly in front
+  anchor.group.add(basicPlane);
+  
+  console.log('Planes added to anchor');
+  console.log('TestPlane visible:', testPlane.visible);
+  console.log('BasicPlane visible:', basicPlane.visible);
+
+  // Keep your debug cube
+  const debugCube = new THREE.Mesh(
+    new THREE.BoxGeometry(1, 1, 1),
+    new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true })
+  );
+  debugCube.position.set(0, 0, 3); // 3 units "above" the poster
+  anchor.group.add(debugCube);rom "mindar-image-three";
 
 // Simple test shaders
 const testVertexShader = /* glsl */ `
@@ -44,13 +69,19 @@ const startAR = async () => {
     container,
     imageTargetSrc: "./poster.mind",
     maxTrack: 1,
-    physicalWidth: 0.2794,
+    physicalWidth: 0.2794, // 11 inches in meters
   });
 
   const { renderer, scene, camera } = mindarThree;
 
+  // Add some light (for completeness, though ShaderMaterial here ignores it)
+  const light = new THREE.AmbientLight(0xffffff, 1.0);
+  scene.add(light);
+
+  // Anchor for your poster
   const anchor = mindarThree.addAnchor(0);
 
+  // Simple 11x17 plane, centered on the marker, no weird rotations
   const geom = new THREE.PlaneGeometry(11, 17, 10, 10);
 
   const uniforms = {
@@ -66,31 +97,22 @@ const startAR = async () => {
   });
 
   const testPlane = new THREE.Mesh(geom, testMat);
+
+  // *** KEY: don't rotate it out of the marker plane.
+  // Just nudge slightly toward the camera to avoid z-fighting.
   testPlane.position.z = 0.01;
+
   anchor.group.add(testPlane);
 
-  // Basic material plane for comparison
-  const basicMat = new THREE.MeshBasicMaterial({
-    color: 0xff00ff,
-    transparent: true,
-    opacity: 0.8,
-    side: THREE.DoubleSide,
-  });
-  const basicPlane = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), basicMat);
-  basicPlane.position.z = 0.02;
-  anchor.group.add(basicPlane);
-  
-  console.log('Planes added. TestPlane visible:', testPlane.visible, 'BasicPlane visible:', basicPlane.visible);
-
-  // Debug cube
+  // Keep your debug cube if you like
   const debugCube = new THREE.Mesh(
     new THREE.BoxGeometry(1, 1, 1),
     new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true })
   );
-  debugCube.position.set(0, 0, 3);
+  debugCube.position.set(0, 0, 3); // 3 units “above” the poster
   anchor.group.add(debugCube);
 
-  console.log("Starting MindAR...");
+  console.log("Starting MindAR session...");
   await mindarThree.start();
   console.log("MindAR started.");
 
