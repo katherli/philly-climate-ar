@@ -1,88 +1,82 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Philadelphia Climate Surface AR - Image Marker</title>
+
+<!-- MindAR + A-Frame -->
 <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image.prod.js"></script>
 <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.2/dist/mindar-image-aframe.prod.js"></script>
+
 <style>
-  html,body{margin:0;padding:0;overflow:hidden;font-family:Inter,system-ui,sans-serif}
-  #instructions{
-    position:absolute;
-    top:20px;
-    left:50%;
-    transform:translateX(-50%);
-    background:rgba(0,0,0,0.75);
-    color:white;
-    padding:15px 25px;
-    border-radius:12px;
-    font-size:14px;
-    z-index:1000;
-    text-align:center;
+  html, body { margin:0; padding:0; overflow:hidden; font-family:Inter,system-ui,sans-serif; }
+  #instructions {
+    position:absolute; top:20px; left:50%; transform:translateX(-50%);
+    background:rgba(0,0,0,0.75); color:white; padding:15px 25px;
+    border-radius:12px; font-size:14px; z-index:1000; text-align:center;
     backdrop-filter:blur(10px);
   }
-  #yearLabel{
-    position:absolute;
-    bottom:20px;
-    left:50%;
-    transform:translateX(-50%);
-    background:rgba(0,0,0,0.75);
-    color:#38bdf8;
-    padding:10px 20px;
-    border-radius:8px;
-    font-size:12px;
-    font-family:monospace;
-    z-index:1000;
+  #yearLabel {
+    position:absolute; bottom:20px; left:50%; transform:translateX(-50%);
+    background:rgba(0,0,0,0.75); color:#38bdf8; padding:10px 20px;
+    border-radius:8px; font-size:12px; font-family:monospace; z-index:1000;
     backdrop-filter:blur(10px);
   }
 </style>
 </head>
 <body>
-<div id="instructions">Point camera at the purple image marker</div>
-<div id="yearLabel">Loading...</div>
+  <div id="instructions">Point camera at the purple Earth marker</div>
+  <div id="yearLabel">Loading…</div>
 
-<a-scene 
-  mindar-image="imageTargetSrc: marker.mind; autoStart: true; uiLoading: no; uiError: no; uiScanning: no;"
-  color-space="sRGB"
-  renderer="colorManagement: true, physicallyCorrectLights"
-  vr-mode-ui="enabled: false"
-  device-orientation-permission-ui="enabled: false">
-  
-  <a-assets>
-    <a-asset-item id="shaderVert" src="#vertexShader"></a-asset-item>
-    <a-asset-item id="shaderFrag" src="#fragmentShader"></a-asset-item>
-  </a-assets>
+  <a-scene
+    mindar-image="imageTargetSrc: ./marker.mind; autoStart: true; uiLoading: no; uiError: no; uiScanning: no;"
+    color-space="sRGB"
+    renderer="colorManagement: true, physicallyCorrectLights"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false">
 
-  <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+    <a-assets>
+      <!-- keep your shader assets as-is -->
+      <a-asset-item id="shaderVert" src="#vertexShader"></a-asset-item>
+      <a-asset-item id="shaderFrag" src="#fragmentShader"></a-asset-item>
+    </a-assets>
 
-  <a-entity mindar-image-target="targetIndex: 0">
-    <a-entity 
-      id="climateFabric"
-      position="0 0 0"
-      rotation="-90 0 0"
-      scale="1 1 1"
-      climate-fabric>
+    <!-- MindAR camera -->
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+    <!-- Attach your fabric to the *first* (and only) image target -->
+    <a-entity mindar-image-target="targetIndex: 0">
+      <a-entity
+        id="climateFabric"
+        position="0 0 0"
+        rotation="-90 0 0"
+        scale="1 1 1"
+        climate-fabric>
+      </a-entity>
     </a-entity>
-  </a-entity>
-</a-scene>
+  </a-scene>
 
-<!-- Vertex Shader -->
-<script id="vertexShader" type="x-shader/x-vertex">
-varying vec3 vPosition;
-varying vec3 vNormal;
-varying vec2 vUv;
-varying float vAnom;
+  <!-- Vertex shader: 17×11 plane displaced like cloth/water -->
+  <script id="vertexShader" type="x-shader/x-vertex">
+attribute vec2 aUV;
 
-uniform float time;
-uniform float anomaly;
-uniform float cumulative;
-uniform float heightScale;
-uniform float wind;
-uniform float precip;
+uniform mat4 u_proj, u_view;
+uniform float u_time;
+uniform float u_anomaly;
+uniform float u_cumulative;
+uniform float u_heightScale;
+uniform float u_wind;
+uniform float u_precip;
 
-// Simplex noise
+varying vec3 v_pos;
+varying vec3 v_normal;
+varying vec2 v_uv;
+varying float v_anom;
+
+mat2 rot(float a){float c=cos(a),s=sin(a);return mat2(c,-s,s,c);}
+
 vec3 permute(vec3 x){ return mod(((x*34.0)+1.0)*x, 289.0); }
 
 float snoise(vec2 v){
@@ -107,9 +101,7 @@ float snoise(vec2 v){
   return 130.0 * dot(m, g);
 }
 
-mat2 rot(float a){float c=cos(a),s=sin(a);return mat2(c,-s,s,c);}
-
-float disp(vec2 p, float t, float an, float cum, float w, float pr){
+float disp(vec2 p, float t, float an, float cum, float wind, float precip){
   float A = mix(0.05, 0.25, an) + cum * 0.12;
   
   vec2 noiseCoord = p * 0.2;
@@ -119,14 +111,14 @@ float disp(vec2 p, float t, float an, float cum, float w, float pr){
   float localPhase = (n1 + n2) * 0.5;
   float localAmp = 0.7 + 0.3 * snoise(p * 0.15 + t * 0.08);
   
-  float k1 = mix(0.6, 0.4, an), sp1 = 0.8 + w * 0.15;
-  float k2 = mix(0.8, 0.6, an), sp2 = 1.0 + w * 0.2;
-  float k3 = mix(0.9, 0.7, an), sp3 = 0.6 + w * 0.1;
+  float k1 = mix(0.6, 0.4, an), sp1 = 0.8 + wind * 0.15;
+  float k2 = mix(0.8, 0.6, an), sp2 = 1.0 + wind * 0.2;
+  float k3 = mix(0.9, 0.7, an), sp3 = 0.6 + wind * 0.1;
 
-  vec2 q1 = rot(0.00) * p; 
+  vec2 q1 = rot(0.00)  * p; 
   float w1 = sin(dot(q1, vec2(k1, k1*1.05)) - t*sp1 + localPhase*0.3);
   
-  vec2 q2 = rot(2.09) * p;
+  vec2 q2 = rot(2.09)  * p;
   float w2 = sin(dot(q2, vec2(k2, k2*1.05)) - t*sp2 + localPhase*0.3);
   
   vec2 q3 = rot(4.19) * p;
@@ -136,163 +128,168 @@ float disp(vec2 p, float t, float an, float cum, float w, float pr){
 }
 
 void main(){
-  vUv = uv;
-  vAnom = anomaly;
+  v_uv = aUV;
+  v_anom = u_anomaly;
 
-  vec2 plane = vec2(mix(-0.85, 0.85, uv.x), mix(-0.55, 0.55, uv.y));
+  vec2 plane = vec2(mix(-8.5, 8.5, aUV.x), mix(-5.5, 5.5, aUV.y));
 
-  float t = time;
+  float t = u_time;
   
-  float billow1 = sin(plane.x * 3.0 + t * 0.4) * cos(plane.y * 2.5 + t * 0.35);
-  float billow2 = sin(plane.x * 4.0 - plane.y * 3.0 + t * 0.5);
-  float billowHeight = (billow1 * 0.8 + billow2 * 0.5) * 0.03;
+  float billow1 = sin(plane.x * 0.3 + t * 0.4) * cos(plane.y * 0.25 + t * 0.35);
+  float billow2 = sin(plane.x * 0.4 - plane.y * 0.3 + t * 0.5);
+  float billowHeight = (billow1 * 0.8 + billow2 * 0.5) * 0.3;
   
-  float h = disp(plane, t, anomaly, cumulative, wind, precip) + billowHeight;
+  float h  = disp(plane, t, u_anomaly, u_cumulative, u_wind, u_precip) + billowHeight;
 
-  float e = 0.005;
-  float billow1x = sin((plane.x+e) * 3.0 + t * 0.4) * cos(plane.y * 2.5 + t * 0.35);
-  float billow2x = sin((plane.x+e) * 4.0 - plane.y * 3.0 + t * 0.5);
-  float billowHeightX = (billow1x * 0.8 + billow2x * 0.5) * 0.03;
+  float e = 0.05;
+  float billow1x = sin((plane.x+e) * 0.3 + t * 0.4) * cos(plane.y * 0.25 + t * 0.35);
+  float billow2x = sin((plane.x+e) * 0.4 - plane.y * 0.3 + t * 0.5);
+  float billowHeightX = (billow1x * 0.8 + billow2x * 0.5) * 0.3;
   
-  float billow1y = sin(plane.x * 3.0 + t * 0.4) * cos((plane.y+e) * 2.5 + t * 0.35);
-  float billow2y = sin(plane.x * 4.0 - (plane.y+e) * 3.0 + t * 0.5);
-  float billowHeightY = (billow1y * 0.8 + billow2y * 0.5) * 0.03;
+  float billow1y = sin(plane.x * 0.3 + t * 0.4) * cos((plane.y+e) * 0.25 + t * 0.35);
+  float billow2y = sin(plane.x * 0.4 - (plane.y+e) * 0.3 + t * 0.5);
+  float billowHeightY = (billow1y * 0.8 + billow2y * 0.5) * 0.3;
   
-  float hx = disp(plane + vec2(e,0.0), t, anomaly, cumulative, wind, precip) + billowHeightX;
-  float hy = disp(plane + vec2(0.0,e), t, anomaly, cumulative, wind, precip) + billowHeightY;
+  float hx = disp(plane + vec2(e,0.0), t, u_anomaly, u_cumulative, u_wind, u_precip) + billowHeightX;
+  float hy = disp(plane + vec2(0.0,e), t, u_anomaly, u_cumulative, u_wind, u_precip) + billowHeightY;
 
-  vec3 P = vec3(plane.x, h * heightScale, plane.y);
-  vec3 Px = vec3(plane.x+e, hx * heightScale, plane.y);
-  vec3 Py = vec3(plane.x, hy * heightScale, plane.y+e);
+  vec3 P  = vec3(plane.x, h*u_heightScale, plane.y);
+  vec3 Px = vec3(plane.x+e, hx*u_heightScale, plane.y);
+  vec3 Py = vec3(plane.x, hy*u_heightScale, plane.y+e);
 
   vec3 N = normalize(cross(Py-P, Px-P));
 
-  vPosition = (modelMatrix * vec4(P, 1.0)).xyz;
-  vNormal = normalMatrix * N;
+  v_pos = P;
+  v_normal = N;
 
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(P, 1.0);
+  gl_Position = u_proj * u_view * vec4(P,1.0);
 }
-</script>
+  </script>
 
-<!-- Fragment Shader -->
-<script id="fragmentShader" type="x-shader/x-fragment">
+  <!-- Fragment shader: color mapping + lighting -->
+  <script id="fragmentShader" type="x-shader/x-fragment">
 precision highp float;
 
-varying vec3 vPosition;
-varying vec3 vNormal;
-varying vec2 vUv;
-varying float vAnom;
+varying vec3 v_pos;
+varying vec3 v_normal;
+varying vec2 v_uv;
+varying float v_anom;
 
-uniform float time;
-uniform float cumulative;
-uniform vec3 camPos;
+uniform vec3 u_lightDir;
+uniform vec3 u_camPos;
+uniform float u_time;
+uniform float u_cumulative;
 
 vec3 permute(vec3 x) { return mod(((x*34.0)+1.0)*x, 289.0); }
 
 float snoise(vec2 v) {
-  const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
-  vec2 i  = floor(v + dot(v, C.yy));
-  vec2 x0 = v - i + dot(i, C.xx);
-  vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
-  vec4 x12 = x0.xyxy + C.xxzz;
-  x12.xy -= i1;
-  i = mod(i, 289.0);
-  vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
-  vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
-  m = m*m; m = m*m;
-  vec3 x = 2.0 * fract(p * C.www) - 1.0;
-  vec3 h = abs(x) - 0.5;
-  vec3 ox = floor(x + 0.5);
-  vec3 a0 = x - ox;
-  m *= 1.79284291400159 - 0.85373472095314 * (a0*a0 + h*h);
-  vec3 g;
-  g.x  = a0.x  * x0.x  + h.x  * x0.y;
-  g.yz = a0.yz * x12.xz + h.yz * x12.yw;
-  return 130.0 * dot(m, g);
+    const vec4 C = vec4(0.211324865405187, 0.366025403784439, -0.577350269189626, 0.024390243902439);
+    vec2 i  = floor(v + dot(v, C.yy));
+    vec2 x0 = v - i + dot(i, C.xx);
+    vec2 i1 = (x0.x > x0.y) ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
+    vec4 x12 = x0.xyxy + C.xxzz;
+    x12.xy -= i1;
+    i = mod(i, 289.0);
+    vec3 p = permute(permute(i.y + vec3(0.0, i1.y, 1.0)) + i.x + vec3(0.0, i1.x, 1.0));
+    vec3 m = max(0.5 - vec3(dot(x0,x0), dot(x12.xy,x12.xy), dot(x12.zw,x12.zw)), 0.0);
+    m = m*m; m = m*m;
+    vec3 x = 2.0 * fract(p * C.www) - 1.0;
+    vec3 h = abs(x) - 0.5;
+    vec3 ox = floor(x + 0.5);
+    vec3 a0 = x - ox;
+    m *= 1.79284291400159 - 0.85373472095314 * (a0*a0 + h*h);
+    vec3 g;
+    g.x  = a0.x  * x0.x  + h.x  * x0.y;
+    g.yz = a0.yz * x12.xz + h.yz * x12.yw;
+    return 130.0 * dot(m, g);
 }
 
 float fbm(vec2 p) {
-  float v = 0.0, a = 0.5, freq = 1.0;
-  for (int i = 0; i < 5; i++) {
-    v += a * snoise(p * freq);
-    freq *= 2.0;
-    a *= 0.5;
-  }
-  return v;
+    float v = 0.0;
+    float a = 0.5;
+    float freq = 1.0;
+    for (int i = 0; i < 5; i++) {
+        v += a * snoise(p * freq);
+        freq *= 2.0;
+        a *= 0.5;
+    }
+    return v;
 }
 
 void main(){
-  vec2 uv = vUv - 0.5;
-  float aspect = 1.7 / 1.1;
-  uv.x *= aspect;
+    vec2 uv = v_uv - 0.5;
+    float aspect = 17.0 / 11.0;
+    uv.x *= aspect;
 
-  float an = vAnom * 2.0 - 1.0;
-  float cum = cumulative * 2.0 - 1.0;
+    float an = v_anom * 2.0 - 1.0;
+    float cum = u_cumulative * 2.0 - 1.0;
 
-  float speed = mix(0.15, 0.6, clamp(cumulative, 0.0, 1.0));
-  float t = time * speed;
+    float speed = mix(0.15, 0.6, clamp(u_cumulative, 0.0, 1.0));
+    float t = u_time * speed;
 
-  float h = vPosition.y;
-  
-  vec2 base = uv * mix(1.8, 2.5, 0.5 + 0.5*an);
-  vec2 warp = vec2(
-    snoise(base * 0.5 + vec2(0.0, t*0.3)),
-    snoise(base * 0.5 + vec2(t*0.3, 1.0))
-  );
-  vec2 p = base + warp * 0.3;
+    float h = v_pos.y;
+    
+    vec2 base = uv * mix(1.8, 2.5, 0.5 + 0.5*an);
+    vec2 warp = vec2(
+        snoise(base * 0.5 + vec2(0.0, t*0.3)),
+        snoise(base * 0.5 + vec2(t*0.3, 1.0))
+    );
+    vec2 p = base + warp * 0.3;
 
-  float f1 = fbm(p + vec2(t * 0.2, -t * 0.15));
-  float field = f1 * 0.3;
+    float f1 = fbm(p + vec2(t * 0.2, -t * 0.15));
+    float field = f1 * 0.3;
 
-  float value = h * 2.5 + field + an * 0.7 + cum * 0.3;
-  value = 0.5 + 0.5 * value;
-  value = clamp(value, 0.0, 1.0);
+    float value = h * 0.25 + field + an * 0.7 + cum * 0.3;
+    value = 0.5 + 0.5 * value;
+    value = clamp(value, 0.0, 1.0);
 
-  vec3 cCold = vec3(0.05, 0.05, 0.6);
-  vec3 cMid  = vec3(0.42, 0.05, 0.55);
-  vec3 cHot  = vec3(1.0, 0.18, 0.1);
+    vec3 cCold = vec3(0.05, 0.05, 0.6);
+    vec3 cMid  = vec3(0.42, 0.05, 0.55);
+    vec3 cHot  = vec3(1.0, 0.18, 0.1);
 
-  vec3 baseCol;
-  if (value < 0.5) {
-    float tMid = smoothstep(0.0, 0.5, value);
-    baseCol = mix(cCold, cMid, tMid);
-  } else {
-    float tHot = smoothstep(0.5, 1.0, value);
-    baseCol = mix(cMid, cHot, tHot);
-  }
+    vec3 baseCol;
+    if (value < 0.5) {
+        float tMid = smoothstep(0.0, 0.5, value);
+        baseCol = mix(cCold, cMid, tMid);
+    } else {
+        float tHot = smoothstep(0.5, 1.0, value);
+        baseCol = mix(cMid, cHot, tHot);
+    }
 
-  vec3 N = normalize(vNormal);
-  vec3 L = normalize(vec3(0.4, 0.8, 0.3));
-  vec3 V = normalize(camPos - vPosition);
+    vec3 N = normalize(v_normal);
+    vec3 L = normalize(u_lightDir);
+    vec3 V = normalize(u_camPos - v_pos);
 
-  float lambert = max(dot(N,L), 0.0);
-  vec3 col = baseCol * (0.7 + 0.3*lambert);
+    float lambert = max(dot(N,L), 0.0);
+    
+    vec3 col = baseCol * (0.7 + 0.3*lambert);
 
-  float vignette = smoothstep(0.9, 0.1, length(uv));
-  col *= mix(0.65, 1.0, vignette);
+    float vignette = smoothstep(0.9, 0.1, length(uv));
+    col *= mix(0.65, 1.0, vignette);
 
-  float grain = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898,78.233))) * 43758.5453);
-  col += (grain - 0.5) * 0.02;
+    float grain = fract(sin(dot(gl_FragCoord.xy, vec2(12.9898,78.233))) * 43758.5453);
+    col += (grain - 0.5) * 0.02;
 
-  float fresnel = pow(1.0 - abs(dot(N,V)), 2.0);
-  float heightOpacity = smoothstep(-0.03, 0.03, vPosition.y);
-  float densityNoise = snoise(uv * 3.0 + vec2(time * 0.1, 0.0));
-  float density = 0.5 + 0.5 * densityNoise;
-  
-  float alpha = mix(0.4, 0.9, fresnel * 0.5 + heightOpacity * 0.3 + density * 0.2);
-  
-  gl_FragColor = vec4(col, alpha);
+    float fresnel = pow(1.0 - abs(dot(N,V)), 2.0);
+    float heightOpacity = smoothstep(-0.3, 0.3, v_pos.y);
+    float densityNoise = snoise(uv * 3.0 + vec2(u_time * 0.1, 0.0));
+    float density = 0.5 + 0.5 * densityNoise;
+    
+    float alpha = mix(0.4, 0.9, fresnel * 0.5 + heightOpacity * 0.3 + density * 0.2);
+    
+    gl_FragColor = vec4(col, alpha);
 }
-</script>
+  </script>
 
-<script>
-const CSV_FILE = 'yearly_climate_summary.csv';
-
+  <!-- Climate fabric A-Frame component -->
+  <script>
 AFRAME.registerComponent('climate-fabric', {
   schema: {},
   
   init: function() {
-    // Load CSV data
+    const CSV_FILE = 'yearly_climate_summary.csv';
+    const BASELINE = [1945, 1975];
+    
     this.years = [];
     this.anomaliesNorm = [];
     this.cumulativeNorm = [];
@@ -300,122 +297,152 @@ AFRAME.registerComponent('climate-fabric', {
     this.precipNorm = [];
     this.yearIdx = 0;
     this.blend = 0;
-    this.lastT = performance.now() / 1000;
-    this.SEC_PER_YEAR = 1.25;
+    this.lastT = Date.now() / 1000;
     
-    this.loadData();
-    this.createMesh();
-  },
-  
-  loadData: async function() {
-    try {
-      const response = await fetch(CSV_FILE);
-      const text = await response.text();
-      const lines = text.trim().split(/\r?\n/);
-      const yearlyData = [];
-      
-      for(let i=1; i<lines.length; i++){
-        const c = lines[i].split(',');
-        if(c.length < 5) continue;
-        const year = parseInt(c[0], 10);
-        const anomaly = parseFloat(c[2]);
-        const wind = parseFloat(c[3]);
-        const precip = parseFloat(c[4]);
-        if(Number.isFinite(year) && Number.isFinite(anomaly) && Number.isFinite(wind) && Number.isFinite(precip)) {
-          yearlyData.push({year, anomaly, wind, precip});
+    const yearLabel = document.getElementById('yearLabel');
+    
+    // Load CSV data
+    fetch(CSV_FILE)
+      .then(r => { if(!r.ok) throw new Error('CSV missing'); return r.text(); })
+      .then(text => {
+        const lines = text.trim().split(/\r?\n/);
+        const yearlyData = [];
+        
+        for(let i=1; i<lines.length; i++) {
+          const c = lines[i].split(',');
+          if(c.length<5) continue;
+          const year = parseInt(c[0],10);
+          const anomaly = parseFloat(c[2]);
+          const wind = parseFloat(c[3]);
+          const precip = parseFloat(c[4]);
+          if(Number.isFinite(year) && Number.isFinite(anomaly) && Number.isFinite(wind) && Number.isFinite(precip)) {
+            yearlyData.push({year, anomaly, wind, precip});
+          }
         }
-      }
-      
-      this.years = yearlyData.map(d => d.year);
-      const rawAnom = yearlyData.map(d => d.anomaly);
-      const rawWind = yearlyData.map(d => d.wind);
-      const rawPrecip = yearlyData.map(d => d.precip);
-      
-      const aMin = Math.min(...rawAnom), aMax = Math.max(...rawAnom), span = (aMax-aMin)||1;
-      this.anomaliesNorm = rawAnom.map(a => (a-aMin)/span);
-      
-      const cum = []; 
-      let acc = 0; 
-      for(const a of rawAnom){ acc += a; cum.push(acc); }
-      const cMin = Math.min(...cum), cMax = Math.max(...cum), cSpan = (cMax-cMin)||1;
-      this.cumulativeNorm = cum.map(v => (v-cMin)/cSpan);
-      
-      const wMin = Math.min(...rawWind), wMax = Math.max(...rawWind), wSpan = (wMax-wMin)||1;
-      this.windNorm = rawWind.map(w => (w-wMin)/wSpan);
-      
-      const pMin = Math.min(...rawPrecip), pMax = Math.max(...rawPrecip), pSpan = (pMax-pMin)||1;
-      this.precipNorm = rawPrecip.map(p => (p-pMin)/pSpan);
-      
-      document.getElementById('yearLabel').textContent = 'Data loaded - Point at marker';
-    } catch(e) {
-      console.error('Failed to load CSV:', e);
-      document.getElementById('yearLabel').textContent = 'Error loading data';
-    }
+        
+        this.years = yearlyData.map(d => d.year);
+        const rawAnom = yearlyData.map(d => d.anomaly);
+        const rawWind = yearlyData.map(d => d.wind);
+        const rawPrecip = yearlyData.map(d => d.precip);
+        
+        const aMin = Math.min(...rawAnom), aMax = Math.max(...rawAnom), span = (aMax-aMin)||1;
+        this.anomaliesNorm = rawAnom.map(a => (a-aMin)/span);
+        
+        const cum = []; let acc = 0;
+        for(const a of rawAnom) { acc += a; cum.push(acc); }
+        const cMin = Math.min(...cum), cMax = Math.max(...cum), cSpan = (cMax-cMin)||1;
+        this.cumulativeNorm = cum.map(v => (v-cMin)/cSpan);
+        
+        const wMin = Math.min(...rawWind), wMax = Math.max(...rawWind), wSpan = (wMax-wMin)||1;
+        this.windNorm = rawWind.map(w => (w-wMin)/wSpan);
+        
+        const pMin = Math.min(...rawPrecip), pMax = Math.max(...rawPrecip), pSpan = (pMax-pMin)||1;
+        this.precipNorm = rawPrecip.map(p => (p-pMin)/pSpan);
+        
+        // Create custom shader material
+        this.createMaterial();
+      })
+      .catch(e => { yearLabel.textContent = 'Error loading data'; console.error(e); });
   },
   
-  createMesh: function() {
-    const RES_X = 120, RES_Y = 78;
-    const geometry = new THREE.PlaneGeometry(1.7, 1.1, RES_X, RES_Y);
+  createMaterial: function() {
+    const RES_X = 240, RES_Y = 156;
+    const verts = new Float32Array((RES_X+1)*(RES_Y+1)*2);
+    let ptr = 0;
+    for (let j=0; j<=RES_Y; j++) {
+      for (let i=0; i<=RES_X; i++) {
+        verts[ptr++] = i/RES_X;
+        verts[ptr++] = j/RES_Y;
+      }
+    }
     
-    const material = new THREE.ShaderMaterial({
-      vertexShader: document.getElementById('vertexShader').textContent,
-      fragmentShader: document.getElementById('fragmentShader').textContent,
+    const indices = new Uint16Array(RES_X*RES_Y*6);
+    let k = 0;
+    for (let j=0; j<RES_Y; j++) {
+      for (let i=0; i<RES_X; i++) {
+        const a = j*(RES_X+1)+i;
+        const b = a+1;
+        const c = a+(RES_X+1);
+        const d = c+1;
+        indices[k++] = a; indices[k++] = c; indices[k++] = b;
+        indices[k++] = b; indices[k++] = c; indices[k++] = d;
+      }
+    }
+    
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('aUV', new THREE.BufferAttribute(verts, 2));
+    geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+    
+    const vertShader = document.getElementById('vertexShader').textContent;
+    const fragShader = document.getElementById('fragmentShader').textContent;
+    
+    this.material = new THREE.ShaderMaterial({
+      vertexShader: vertShader,
+      fragmentShader: fragShader,
       uniforms: {
-        time: { value: 0 },
-        anomaly: { value: 0 },
-        cumulative: { value: 0 },
-        heightScale: { value: 0.1 },
-        wind: { value: 0 },
-        precip: { value: 0 },
-        camPos: { value: new THREE.Vector3(0, 0, 0) }
+        u_proj: { value: new THREE.Matrix4() },
+        u_view: { value: new THREE.Matrix4() },
+        u_time: { value: 0 },
+        u_anomaly: { value: 0 },
+        u_cumulative: { value: 0 },
+        u_heightScale: { value: 4.0 },
+        u_wind: { value: 0 },
+        u_precip: { value: 0 },
+        u_lightDir: { value: new THREE.Vector3(0.4, 0.8, 0.3).normalize() },
+        u_camPos: { value: new THREE.Vector3(0, 0, 0) }
       },
       transparent: true,
       side: THREE.DoubleSide,
       depthWrite: false
     });
     
-    const mesh = new THREE.Mesh(geometry, material);
+    const mesh = new THREE.Mesh(geometry, this.material);
     this.el.setObject3D('mesh', mesh);
-    this.material = material;
   },
   
   tick: function(time, deltaTime) {
-    if (!this.material || this.anomaliesNorm.length === 0) return;
+    if (!this.material || this.years.length === 0) return;
     
-    const now = time / 1000;
+    const SEC_PER_YEAR = 1.25;
+    const now = Date.now() / 1000;
     const dt = now - this.lastT;
     this.lastT = now;
     
     const lastIdx = this.anomaliesNorm.length - 1;
-    if(this.yearIdx < lastIdx) {
-      this.blend += dt / this.SEC_PER_YEAR;
-      if(this.blend >= 1) {
+    if (this.yearIdx < lastIdx) {
+      this.blend += dt / SEC_PER_YEAR;
+      if (this.blend >= 1) {
         this.blend = 0;
         this.yearIdx++;
       }
     }
     
     const ia = this.yearIdx, ib = Math.min(this.yearIdx + 1, lastIdx);
-    const anom = this.anomaliesNorm[ia] * (1-this.blend) + this.anomaliesNorm[ib] * this.blend;
-    const cum = this.cumulativeNorm[ia] * (1-this.blend) + this.cumulativeNorm[ib] * this.blend;
-    const wind = this.windNorm[ia] * (1-this.blend) + this.windNorm[ib] * this.blend;
-    const precip = this.precipNorm[ia] * (1-this.blend) + this.precipNorm[ib] * this.blend;
-    const year = Math.round(this.years[ia] * (1-this.blend) + this.years[ib] * this.blend);
+    const currentAnom = this.anomaliesNorm[ia] * (1-this.blend) + this.anomaliesNorm[ib] * this.blend;
+    const currentCum = this.cumulativeNorm[ia] * (1-this.blend) + this.cumulativeNorm[ib] * this.blend;
+    const currentWind = this.windNorm[ia] * (1-this.blend) + this.windNorm[ib] * this.blend;
+    const currentPrecip = this.precipNorm[ia] * (1-this.blend) + this.precipNorm[ib] * this.blend;
     
-    this.material.uniforms.time.value = now;
-    this.material.uniforms.anomaly.value = anom;
-    this.material.uniforms.cumulative.value = cum;
-    this.material.uniforms.wind.value = wind;
-    this.material.uniforms.precip.value = precip;
+    const yDisp = Math.round(this.years[ia] * (1-this.blend) + this.years[ib] * this.blend);
+    const yearLabel = document.getElementById('yearLabel');
+    if (yearLabel) yearLabel.textContent = `Year: ${yDisp}`;
     
+    // Update uniforms
+    this.material.uniforms.u_time.value = now;
+    this.material.uniforms.u_anomaly.value = currentAnom;
+    this.material.uniforms.u_cumulative.value = currentCum;
+    this.material.uniforms.u_wind.value = currentWind;
+    this.material.uniforms.u_precip.value = currentPrecip;
+    
+    // Update camera and projection uniforms
     const camera = this.el.sceneEl.camera;
-    if(camera) {
-      this.material.uniforms.camPos.value.copy(camera.position);
+    if (camera) {
+      this.material.uniforms.u_proj.value.copy(camera.projectionMatrix);
+      this.material.uniforms.u_view.value.copy(camera.matrixWorldInverse);
+      this.material.uniforms.u_camPos.value.setFromMatrixPosition(camera.matrixWorld);
     }
-    
-    document.getElementById('yearLabel').textContent = `Year: ${year}`;
   }
 });
-</script>
+  </script>
 </body>
 </html>
