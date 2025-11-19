@@ -41,12 +41,11 @@ const startAR = async () => {
 
   const testPlane = new THREE.Mesh(geom, testMat);
   testPlane.rotation.x = -Math.PI / 2; // Rotate to face upward (camera looks down Y-axis)
-  testPlane.position.y = 0.01; // Lift slightly above marker
+  testPlane.position.y = 0.03; // Lift above the magenta plane
   anchor.group.add(testPlane);
   
   console.log('Shader plane created:', testPlane);
   console.log('Shader material:', testMat);
-  console.log('Shader uniforms:', uniforms);
   
   // Check for shader errors
   renderer.info.autoReset = false;
@@ -61,7 +60,7 @@ const startAR = async () => {
   });
   const basicPlane = new THREE.Mesh(new THREE.PlaneGeometry(5, 5), basicMat);
   basicPlane.rotation.x = -Math.PI / 2; // Rotate to face upward
-  basicPlane.position.y = 0.02; // Lift slightly more
+  basicPlane.position.y = 0.01; // Lower than shader plane
   anchor.group.add(basicPlane);
   
   console.log('Planes added. TestPlane visible:', testPlane.visible, 'BasicPlane visible:', basicPlane.visible);
