@@ -114,11 +114,12 @@ void main(){
   float hy = disp(plane + vec2(0.0,e), t, u_anomaly, u_cumulative, u_wind, u_precip)
            + billowHeightY;
 
-  vec3 P  = vec3(plane.x, h * u_heightScale, plane.y);
-  vec3 Px = vec3(plane.x+e, hx * u_heightScale, plane.y);
-  vec3 Py = vec3(plane.x, hy * u_heightScale, plane.y+e);
+  // PlaneGeometry is in XY plane, so we displace along Z axis (not Y)
+  vec3 P  = vec3(plane.x, plane.y, h * u_heightScale);
+  vec3 Px = vec3(plane.x+e, plane.y, hx * u_heightScale);
+  vec3 Py = vec3(plane.x, plane.y+e, hy * u_heightScale);
 
-  vec3 N = normalize(cross(Py-P, Px-P));
+  vec3 N = normalize(cross(Px-P, Py-P));
 
   v_pos = P;
   v_normal = N;
@@ -192,7 +193,7 @@ void main(){
   float speed = mix(0.15, 0.6, clamp(u_cumulative, 0.0, 1.0));
   float t = u_time * speed;
 
-  float h = v_pos.y;
+  float h = v_pos.z; // Height is now along Z axis
 
   vec2 base = uv * mix(1.8, 2.5, 0.5 + 0.5*an);
   vec2 warp = vec2(
@@ -237,7 +238,7 @@ void main(){
   col += (grain - 0.5) * 0.02;
 
   float fresnel = pow(1.0 - abs(dot(N,V)), 2.0);
-  float heightOpacity = smoothstep(-0.3, 0.3, v_pos.y);
+  float heightOpacity = smoothstep(-0.3, 0.3, v_pos.z); // Use Z for height
   float densityNoise = snoise(uv * 3.0 + vec2(u_time * 0.1, 0.0));
   float density = 0.5 + 0.5 * densityNoise;
 
@@ -252,12 +253,16 @@ void main(){
 const startAR = async () => {
   const container = document.querySelector("#container");
 
+  console.log('Starting AR initialization...');
+
   const mindarThree = new MindARThree({
     container,
     imageTargetSrc: "./poster.mind",
     maxTrack: 1,
     physicalWidth: 0.2794, // 11 inches in meters
   });
+
+  console.log('MindARThree instance created');
 
   const { renderer, scene, camera } = mindarThree;
 
@@ -293,11 +298,23 @@ const startAR = async () => {
   cloth.rotation.x = 0; // Keep flat
   anchor.group.add(cloth);
 
+  // Add a simple debug cube to verify anchor is tracking
+  const debugCube = new THREE.Mesh(
+    new THREE.BoxGeometry(1, 1, 1),
+    new THREE.MeshBasicMaterial({ color: 0xff0000, wireframe: true })
+  );
+  debugCube.position.set(0, 0, 2); // Position it 2 units above the marker
+  anchor.group.add(debugCube);
+
+  console.log('AR objects created and added to anchor');
+
   // ---- CSV loading (same logic as your original) ----
   let years = [], anomaliesNorm = [], cumulativeNorm = [], windNorm = [], precipNorm = [];
+  console.log('Loading CSV data...');
   await fetch(CSV_FILE)
     .then(r => r.text())
     .then(text => {
+      console.log('CSV loaded, parsing...');
       const lines = text.trim().split(/\r?\n/);
       const yearlyData = [];
 
@@ -337,6 +354,8 @@ const startAR = async () => {
       const pMin = Math.min(...rawPrecip), pMax = Math.max(...rawPrecip);
       const pSpan = (pMax - pMin) || 1;
       precipNorm = rawPrecip.map(p => (p - pMin) / pSpan);
+
+      console.log(`CSV parsed: ${years.length} years of data`);
     });
 
   const SEC_PER_YEAR = 1.25;
@@ -345,7 +364,9 @@ const startAR = async () => {
   let lastTime = performance.now() / 1000;
   const clock = new THREE.Clock();
 
+  console.log('Starting MindAR...');
   await mindarThree.start();
+  console.log('MindAR started successfully!');
 
   renderer.setAnimationLoop(() => {
     const now = performance.now() / 1000;
@@ -382,5 +403,8 @@ const startAR = async () => {
 };
 
 document.querySelector("#startBtn").addEventListener("click", () => {
-  startAR();
+  console.log('Start button clicked');
+  startAR().catch(err => {
+    console.error('AR initialization failed:', err);
+  });
 });
